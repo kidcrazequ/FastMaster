@@ -1,0 +1,147 @@
+// Prisma Schema for 八字合婚分析系统
+// Author: zhi.qu
+// Date: 2026-01-05
+// Description: 定义用户、合婚分析等数据模型
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 用户模型
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  isPremium     Boolean   @default(false)  // 是否为高级用户
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关联
+  accounts          Account[]
+  sessions          Session[]
+  analyses          MarriageAnalysis[]
+  destinyAnalyses   DestinyAnalysis[]
+}
+
+// NextAuth Account 模型
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// NextAuth Session 模型
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// NextAuth VerificationToken 模型
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// 合婚分析记录模型
+model MarriageAnalysis {
+  id            String   @id @default(cuid())
+  userId        String
+  
+  // 男方信息
+  person1Name   String
+  person1Birth  DateTime
+  person1Gender String   // male / female
+  person1Bazi   String?  // JSON 格式存储八字信息
+  
+  // 女方信息
+  person2Name   String
+  person2Birth  DateTime
+  person2Gender String   // male / female
+  person2Bazi   String?  // JSON 格式存储八字信息
+  
+  // 分析结果
+  result        String?  // JSON 格式存储分析结果
+  overallScore  Int?     // 总体契合度评分 0-100
+  
+  // 元数据
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 关联
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+}
+
+// AI 对话记录模型（合婚分析）
+model Conversation {
+  id               String   @id @default(cuid())
+  analysisId       String
+  role             String   // user / assistant
+  content          String
+  createdAt        DateTime @default(now())
+
+  // 关联
+  analysis         MarriageAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+}
+
+// 姻缘分析记录模型
+model DestinyAnalysis {
+  id            String   @id @default(cuid())
+  userId        String
+  
+  // 个人信息
+  name          String
+  gender        String   // male / female
+  birthDate     DateTime
+  bazi          String?  // JSON 格式存储八字信息
+  
+  // 分析结果
+  result        String?  // JSON 格式存储分析结果
+  
+  // 元数据
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 关联
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations DestinyConversation[]
+}
+
+// AI 对话记录模型（姻缘分析）
+model DestinyConversation {
+  id               String   @id @default(cuid())
+  analysisId       String
+  role             String   // user / assistant
+  content          String
+  createdAt        DateTime @default(now())
+
+  // 关联
+  analysis         DestinyAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+}
