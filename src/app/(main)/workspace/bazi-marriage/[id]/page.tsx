@@ -97,18 +97,20 @@ function getScoreLevel(score: number): { label: string; color: string } {
 }
 
 /**
- * 预处理 Markdown 内容，修复一些格式问题
+ * 预处理 Markdown 内容，修复格式问题并过滤 emoji
  */
 function preprocessMarkdown(content: string): string {
   if (!content) return '';
   
   let processed = content;
+
+  // 过滤 emoji 图标，保持纯文字古典风格
+  processed = processed.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '');
   
   // 处理 ** 和中文标点之间的空格问题
   processed = processed.replace(/\*\*\s*([""「」『』【】])/g, '**$1');
   processed = processed.replace(/([""「」『』【】])\s*\*\*/g, '$1**');
   
-  // 将 **"..."** 转换为 "**...**"
   processed = processed.replace(/\*\*[""]([^""]+)[""]\*\*/g, '"**$1**"');
   processed = processed.replace(/\*\*「([^」]+)」\*\*/g, '「**$1**」');
   
@@ -1959,91 +1961,83 @@ function ChatSection({
   ];
 
   return (
-    <Card className="flex flex-col h-[600px]">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <MessageCircle className="h-4 w-4" />
-          AI 追问对话
-        </CardTitle>
-        <CardDescription>对分析结果有疑问？继续向 AI 提问</CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1 flex flex-col min-h-0">
-        <ScrollArea className="flex-1 pr-4" ref={scrollRef}>
-          <div className="space-y-4">
-            {conversations.length === 0 && (
-              <div className="text-center py-4">
-                <p className="text-muted-foreground mb-4">可以问我任何关于这次合婚分析的问题</p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {presetQuestions.map((q, i) => (
-                    <Button
-                      key={i}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setMessage(q)}
-                    >
-                      {q}
-                    </Button>
-                  ))}
+    <Card className="rounded-none border border-[#D7CCC8] bg-[#FDFBF7] shadow-lg overflow-hidden flex flex-col h-[600px]">
+      <div className="flex-1 overflow-y-auto p-6 bg-[#F5F2E9]/30" ref={scrollRef}>
+        <div className="space-y-8">
+          {conversations.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-[#8D6E63] mb-6 font-serif italic">可以问我任何关于这次合婚分析的问题</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {presetQuestions.map((q, i) => (
+                  <Button
+                    key={i}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMessage(q)}
+                    className="rounded-none border-[#D7CCC8] text-[#8D6E63] hover:text-[#8B0000] hover:border-[#8B0000] hover:bg-[#FFF9ED] text-xs transition-colors"
+                  >
+                    {q}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+          {conversations.map((conv, i) => (
+            <div
+              key={i}
+              className={`flex gap-4 ${conv.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+            >
+              <div className={`w-10 h-10 flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-md
+                ${conv.role === 'user' ? 'bg-[#3E2723] rounded-sm' : 'bg-[#8B0000] rounded-sm'}`}>
+                {conv.role === 'user' ? '访' : '师'}
+              </div>
+              <div className={`relative max-w-[80%] p-4 border shadow-sm rounded-none
+                ${conv.role === 'user'
+                  ? 'bg-[#FDFBF7] border-[#3E2723]/20'
+                  : 'bg-white border-[#8B0000]/20'}`}>
+                <div className={`absolute top-3 w-3 h-3 rotate-45 border
+                  ${conv.role === 'user'
+                    ? '-right-1.5 bg-[#FDFBF7] border-r border-t border-[#3E2723]/20 border-l-0 border-b-0'
+                    : '-left-1.5 bg-white border-l border-b border-[#8B0000]/20 border-r-0 border-t-0'}`} />
+                <div className={`text-sm prose prose-sm max-w-none ${conv.role === 'user' ? '' : 'prose-stone prose-headings:text-[#8B0000] prose-strong:text-[#8B0000]'}`}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {preprocessMarkdown(conv.content)}
+                  </ReactMarkdown>
                 </div>
               </div>
-            )}
-            {conversations.map((conv, i) => (
-              <div
-                key={i}
-                className={`flex gap-3 ${conv.role === 'user' ? 'flex-row-reverse' : ''}`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    conv.role === 'user'
-                      ? 'bg-amber-500 text-white'
-                      : 'bg-muted'
-                  }`}
-                >
-                  {conv.role === 'user' ? (
-                    <User className="h-4 w-4" />
-                  ) : (
-                    <Bot className="h-4 w-4" />
-                  )}
-                </div>
-                <div
-                  className={`flex-1 rounded-lg p-3 ${
-                    conv.role === 'user'
-                      ? 'bg-[#8B0000] text-white'
-                      : 'bg-[#FFF9ED] border border-[#D7CCC8]'
-                  }`}
-                >
-                  <div className={`text-sm prose prose-sm max-w-none ${conv.role === 'user' ? 'prose-invert' : 'prose-stone prose-headings:text-[#8B0000] prose-strong:text-[#8B0000]'}`}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {preprocessMarkdown(conv.content)}
-                    </ReactMarkdown>
-                  </div>
-                </div>
+            </div>
+          ))}
+          {isLoading && (
+            <div className="flex gap-4">
+              <div className="w-10 h-10 bg-[#8B0000] rounded-sm flex items-center justify-center text-white font-bold text-sm shadow-md animate-pulse">
+                师
               </div>
-            ))}
-            {isLoading && (
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                  <Bot className="h-4 w-4" />
-                </div>
-                <div className="flex-1 rounded-lg p-3 bg-muted">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </div>
+              <div className="bg-white border border-[#8B0000]/20 p-4 shadow-sm rounded-none">
+                <Loader2 className="h-5 w-5 animate-spin text-[#8B0000]" />
               </div>
-            )}
-          </div>
-        </ScrollArea>
-        <form onSubmit={handleSubmit} className="flex gap-2 mt-4">
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="p-6 bg-white border-t border-[#D7CCC8]">
+        <form onSubmit={handleSubmit} className="flex gap-3">
           <Input
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="输入您的问题..."
+            placeholder="向大师追问心中所惑..."
             disabled={isLoading}
+            className="rounded-none border-[#D7CCC8] focus:border-[#8B0000] h-12 bg-[#FDFBF7]"
           />
-          <Button type="submit" size="icon" disabled={isLoading || !message.trim()}>
-            <Send className="h-4 w-4" />
+          <Button
+            type="submit"
+            disabled={isLoading || !message.trim()}
+            className="rounded-none bg-[#8B0000] hover:bg-[#7A0000] text-[#FFD700] px-8 h-12 shadow-md transition-all active:scale-95"
+          >
+            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </Button>
         </form>
-      </CardContent>
+      </div>
     </Card>
   );
 }
@@ -2254,36 +2248,18 @@ export default function MarriageResultPage() {
               
               <div className="relative z-10">
                 {result.aiAnalysis ? (
-                  <div className="prose prose-stone max-w-none 
-                    prose-headings:text-[#8B0000] prose-headings:font-black prose-headings:font-serif prose-headings:tracking-wider
-                    prose-h1:text-4xl prose-h1:text-center prose-h1:border-b-4 prose-h1:border-double prose-h1:border-[#8B0000] prose-h1:pb-6 prose-h1:mb-16
-                    prose-h2:text-3xl prose-h2:border-l-[16px] prose-h2:border-[#8B0000] prose-h2:pl-8 prose-h2:mt-24 prose-h2:mb-12 prose-h2:bg-[#8B0000]/10 prose-h2:py-6 prose-h2:tracking-[0.2em] prose-h2:shadow-sm
-                    prose-h3:text-2xl prose-h3:mt-14 prose-h3:mb-8 prose-h3:text-[#3E2723] prose-h3:font-black prose-h3:border-b-2 prose-h3:border-[#D7CCC8] prose-h3:pb-3
-                    prose-p:text-[#3E2723] prose-p:leading-loose prose-p:mb-14 prose-p:text-xl prose-p:font-medium
-                    prose-strong:text-[#8B0000] prose-strong:font-black prose-strong:text-2xl
-                    prose-li:text-[#3E2723] prose-li:text-xl prose-li:mb-8 prose-li:font-medium
-                    prose-hr:border-[#D7CCC8] prose-hr:my-24">
+                  <div className="prose prose-base max-w-none
+                    prose-headings:text-[#8B0000] prose-headings:font-bold prose-headings:font-serif prose-headings:tracking-wider
+                    prose-h1:text-2xl prose-h1:text-center prose-h1:border-b-2 prose-h1:border-double prose-h1:border-[#8B0000] prose-h1:pb-4 prose-h1:mb-8
+                    prose-h2:text-xl prose-h2:border-l-4 prose-h2:border-[#8B0000] prose-h2:pl-4 prose-h2:mt-10 prose-h2:mb-4 prose-h2:bg-[#8B0000]/5 prose-h2:py-2
+                    prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3 prose-h3:text-[#3E2723] prose-h3:font-bold prose-h3:border-b prose-h3:border-[#D7CCC8] prose-h3:pb-2
+                    prose-p:text-[#3E2723] prose-p:leading-relaxed prose-p:mb-4 prose-p:text-base
+                    prose-strong:text-[#8B0000] prose-strong:font-bold
+                    prose-li:text-[#3E2723] prose-li:text-base prose-li:mb-1
+                    prose-hr:border-[#D7CCC8] prose-hr:my-8
+                    prose-table:text-sm prose-th:bg-[#F5F2E9] prose-th:text-[#3E2723]">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {preprocessMarkdown(result.aiAnalysis
-                        // 1. 清洗：去掉所有行首可能存在的井号和多余空格，然后重新标注 Markdown 级别
-                        .split('\n')
-                        .map(line => {
-                          const cleanLine = line.trim().replace(/^#+\s*/, '');
-                          // 1. 识别并转换一级标题
-                          if (cleanLine.endsWith('分析报告')) return `# ${cleanLine}`;
-                          
-                          // 2. 识别大项标题（支持特定关键词或序号开头）
-                          const isMainTitle = /^(姻缘概述|八字解读|桃花运势|理想对象|婚姻建议|流年参考|合婚评价|性格相容|婚姻宫位|子嗣分析|事业方向|总体评价)/.test(cleanLine) || 
-                                            /^[一二三四五六七八九十\d]+[.、]/.test(cleanLine);
-                          if (isMainTitle) return `## ${cleanLine}`;
-                          
-                          // 3. 识别小项标题
-                          if (/^\(\d+\)/.test(cleanLine)) return `### ${cleanLine}`;
-                          
-                          return cleanLine;
-                        })
-                        .join('\n\n')
-                      )}
+                      {preprocessMarkdown(result.aiAnalysis)}
                     </ReactMarkdown>
                   </div>
                 ) : (

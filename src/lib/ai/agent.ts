@@ -27,12 +27,19 @@ import {
 
 import { logger } from './agent-logger';
 
+/**
+ * System prompt 字符预算上限（仅知识文件）
+ * 书籍原文不再塞入 prompt，大师已通过 MASTER_PERSONA "读过"所有经典
+ * 知识文件是从书中提炼的结构化规则，作为分析时的速查参考
+ */
+const SYSTEM_CONTENT_CHAR_BUDGET = 20_000;
+
 /** AI 客户端实例（支持 OpenAI 兼容 API） */
 function createClient(): OpenAI {
   return new OpenAI({
     apiKey: process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '',
     baseURL: process.env.AI_BASE_URL || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
-    timeout: 90_000,
+    timeout: 120_000,
   });
 }
 
@@ -54,7 +61,7 @@ async function streamChat(
     model: getModelName(),
     messages,
     temperature: options?.temperature ?? 0.7,
-    max_tokens: options?.maxTokens ?? 4000,
+    max_tokens: options?.maxTokens ?? 3000,
     stream: true,
   });
 
@@ -67,104 +74,36 @@ async function streamChat(
 }
 
 /**
- * 经典书籍按分析类型分组加载，控制 prompt 大小避免 API 超时
- * 每类只加载 2 本最核心的书（约 500-600 行），配合知识文件使用
+ * 全部专题知识文件（从经典书籍中提炼的结构化规则）
+ * 书籍原文不放入 prompt，大师已通过 MASTER_PERSONA 内化所有经典知识
  */
-const BOOK_FILES_BY_TYPE = {
-  /** 合婚分析：合婚实战 + 干支合冲婚姻 */
-  marriage: [
-    'books/ba-zi-he-hun-shi-zhan.md',
-    'books/gan-zhi-he-hun.md',
-  ],
-  /** 姻缘分析：预测配偶 + 婚姻实战密码 */
-  destiny: [
-    'books/xian-dai-yu-ce-pei-ou.md',
-    'books/ba-zi-hun-yin-mi-ma.md',
-  ],
-  /** 追问对话：预测配偶（精简核心） */
-  followUp: [
-    'books/xian-dai-yu-ce-pei-ou.md',
-  ],
-} as const;
+const ALL_KNOWLEDGE_FILES = [
+  'shi-shen-hun-yin.md',
+  'he-hun-fa-ze.md',
+  'wu-xing-hun-pei.md',
+  'hun-yin-gong-wei.md',
+  'shen-sha-yin-yuan.md',
+  'na-yin-he-hun.md',
+  'da-yun-liu-nian.md',
+  'tao-hua-yun.md',
+] as const;
 
-/** 知识文件路径映射 */
-const KNOWLEDGE_FILES = {
-  marriage: [
-    'shi-shen-hun-yin.md',
-    'he-hun-fa-ze.md',
-    'wu-xing-hun-pei.md',
-    'hun-yin-gong-wei.md',
-    'shen-sha-yin-yuan.md',
-    'na-yin-he-hun.md',
-    'da-yun-liu-nian.md',
-  ],
-  destiny: [
-    'shi-shen-hun-yin.md',
-    'wu-xing-hun-pei.md',
-    'hun-yin-gong-wei.md',
-    'shen-sha-yin-yuan.md',
-    'tao-hua-yun.md',
-    'da-yun-liu-nian.md',
-  ],
-  followUp: [
-    'shi-shen-hun-yin.md',
-    'wu-xing-hun-pei.md',
-    'hun-yin-gong-wei.md',
-  ],
-} as const;
-
-/** 知识缓存 */
+/** 知识文件缓存 */
 const knowledgeCache = new Map<string, string>();
 
-/** 书籍缓存（按分析类型分别缓存） */
-const booksCache = new Map<string, string>();
-
 /**
- * 加载经典书籍知识（按分析类型加载相关书籍）
- * @param analysisType - 分析类型
- * @returns 合并后的书籍知识内容
- */
-async function loadBooks(analysisType: 'marriage' | 'destiny' | 'followUp'): Promise<string> {
-  if (booksCache.has(analysisType)) {
-    return booksCache.get(analysisType)!;
-  }
-
-  const bookFiles = BOOK_FILES_BY_TYPE[analysisType];
-  const knowledgeDir = path.join(process.cwd(), 'src', 'lib', 'ai', 'knowledge');
-  const contents: string[] = [];
-
-  for (const fileName of bookFiles) {
-    try {
-      const filePath = path.join(knowledgeDir, fileName);
-      const content = await fs.readFile(filePath, 'utf-8');
-      contents.push(content);
-      logger.info(`书籍加载成功: ${fileName}`);
-    } catch (error) {
-      logger.warn(`书籍文件加载失败: ${fileName}`, error);
-    }
-  }
-
-  const merged = contents.join('\n\n---\n\n');
-  booksCache.set(analysisType, merged);
-  logger.info(`${analysisType}分析共加载 ${contents.length} 本相关书籍`);
-  return merged;
-}
-
-/**
- * 加载知识文件
- * @param fileNames - 知识文件名列表
+ * 加载全部专题知识文件
  * @returns 合并后的知识内容
  */
-async function loadKnowledge(fileNames: readonly string[]): Promise<string> {
-  const cacheKey = fileNames.join(',');
-  if (knowledgeCache.has(cacheKey)) {
-    return knowledgeCache.get(cacheKey)!;
+async function loadAllKnowledge(): Promise<string> {
+  if (knowledgeCache.has('all')) {
+    return knowledgeCache.get('all')!;
   }
 
   const knowledgeDir = path.join(process.cwd(), 'src', 'lib', 'ai', 'knowledge');
   const contents: string[] = [];
 
-  for (const fileName of fileNames) {
+  for (const fileName of ALL_KNOWLEDGE_FILES) {
     try {
       const filePath = path.join(knowledgeDir, fileName);
       const content = await fs.readFile(filePath, 'utf-8');
@@ -175,30 +114,55 @@ async function loadKnowledge(fileNames: readonly string[]): Promise<string> {
   }
 
   const merged = contents.join('\n\n---\n\n');
-  knowledgeCache.set(cacheKey, merged);
+  knowledgeCache.set('all', merged);
+  logger.info(`共加载 ${contents.length} 个专题知识文件`);
   return merged;
+}
+
+/** 获取润色专用模型名称（可配置独立的快速模型） */
+export function getReviewModelName(): string {
+  return process.env.REVIEW_MODEL || getModelName();
 }
 
 /**
  * DeepSeek 审校润色：对命理大师的分析结果进行语病检查和内容润色
  * 不会自行扩展分析，只做语言层面的优化
+ * 可通过 SKIP_REVIEW=true 跳过润色步骤（加速开发调试）
+ * 可通过 REVIEW_MODEL 配置独立的快速模型
  * @param rawAnalysis - 命理大师的原始分析报告
  * @param analysisType - 分析类型
  * @returns 润色后的报告
  */
-async function reviewAndPolish(rawAnalysis: string, analysisType: '合婚' | '姻缘'): Promise<string> {
+export async function reviewAndPolish(rawAnalysis: string, analysisType: '合婚' | '姻缘'): Promise<string> {
+  if (process.env.SKIP_REVIEW === 'true') {
+    logger.info(`已配置 SKIP_REVIEW=true，跳过${analysisType}审校润色`);
+    return rawAnalysis;
+  }
+
   try {
     const systemPrompt = buildReviewSystemPrompt(analysisType);
+    const reviewModel = getReviewModelName();
 
-    logger.info(`调用 DeepSeek 审校润色${analysisType}分析报告`);
+    logger.info(`调用 ${reviewModel} 审校润色${analysisType}分析报告`);
 
-    const polished = await streamChat(
-      [
+    const client = createClient();
+    const stream = await client.chat.completions.create({
+      model: reviewModel,
+      messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: rawAnalysis },
       ],
-      { temperature: 0.3, maxTokens: 4000 }
-    );
+      temperature: 0.3,
+      max_tokens: 2500,
+      stream: true,
+    });
+
+    let polished = '';
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) polished += delta;
+    }
+
     if (!polished) {
       logger.warn('DeepSeek 审校返回为空，使用原始分析');
       return rawAnalysis;
@@ -370,14 +334,11 @@ export async function generateMarriageAnalysis(result: MarriageAnalysisResult): 
       naYinResult = analyzeNaYinMarriage(person1Data.naYin, person2Data.naYin);
     }
 
-    // 3. 加载知识库和合婚相关书籍
-    const [knowledge, books] = await Promise.all([
-      loadKnowledge(KNOWLEDGE_FILES.marriage),
-      loadBooks('marriage'),
-    ]);
+    // 3. 加载专题知识文件
+    const knowledge = await loadAllKnowledge();
 
     // 4. 构建提示词
-    const systemPrompt = buildMarriageSystemPrompt(knowledge, books);
+    const systemPrompt = buildMarriageSystemPrompt(knowledge);
     const userPrompt = buildMarriageUserPrompt(result, person1Data, person2Data, naYinResult);
 
     // 5. 流式调用 AI（避免 TCP ETIMEDOUT）
@@ -393,11 +354,8 @@ export async function generateMarriageAnalysis(result: MarriageAnalysisResult): 
       return generateMockMarriageAnalysis(result);
     }
 
-    logger.info('命理大师合婚分析完成，进入 DeepSeek 审校润色环节');
-    const polishedContent = await reviewAndPolish(rawContent, '合婚');
-
-    logger.info('合婚分析报告生成成功（已审校润色）');
-    return polishedContent;
+    logger.info('命理大师合婚分析完成');
+    return rawContent;
   } catch (error) {
     logger.error('命理大师 Agent 合婚分析失败:', error);
     return generateMockMarriageAnalysis(result);
@@ -479,14 +437,11 @@ export async function generateDestinyAnalysis(data: DestinyAnalysisData): Promis
     const daYun = calculateDaYun(siZhu, gender, estimatedBirthDate);
     const naYin = getNaYin(siZhu.year.tianGan, siZhu.year.diZhi);
 
-    // 加载知识库和姻缘相关书籍
-    const [knowledge, books] = await Promise.all([
-      loadKnowledge(KNOWLEDGE_FILES.destiny),
-      loadBooks('destiny'),
-    ]);
+    // 加载专题知识文件
+    const knowledge = await loadAllKnowledge();
 
     // 构建提示词
-    const systemPrompt = buildDestinySystemPrompt(knowledge, books);
+    const systemPrompt = buildDestinySystemPrompt(knowledge);
     const userPrompt = buildDestinyUserPrompt(data, shiShenChart, shenSha, strength, daYun, naYin);
 
     logger.info(`调用 AI 模型 ${getModelName()} 生成姻缘分析（流式）`);
@@ -501,11 +456,8 @@ export async function generateDestinyAnalysis(data: DestinyAnalysisData): Promis
       return generateMockDestinyAnalysis(data);
     }
 
-    logger.info('命理大师姻缘分析完成，进入 DeepSeek 审校润色环节');
-    const polishedContent = await reviewAndPolish(rawContent, '姻缘');
-
-    logger.info('姻缘分析报告生成成功（已审校润色）');
-    return polishedContent;
+    logger.info('命理大师姻缘分析完成');
+    return rawContent;
   } catch (error) {
     logger.error('命理大师 Agent 姻缘分析失败:', error);
     return generateMockDestinyAnalysis(data);
@@ -625,11 +577,8 @@ export async function askFollowUp(
   }
 
   try {
-    const [knowledge, books] = await Promise.all([
-      loadKnowledge(KNOWLEDGE_FILES.followUp),
-      loadBooks('followUp'),
-    ]);
-    const systemPrompt = buildFollowUpSystemPrompt(analysisContext, knowledge, books);
+    const knowledge = await loadAllKnowledge();
+    const systemPrompt = buildFollowUpSystemPrompt(analysisContext, knowledge);
 
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       { role: 'system', content: systemPrompt },
@@ -642,8 +591,8 @@ export async function askFollowUp(
       return '回复生成失败，请重试';
     }
 
-    logger.info('命理大师追问回复完成，进入 DeepSeek 审校润色环节');
-    return reviewAndPolish(rawContent, '姻缘');
+    logger.info('命理大师追问回复完成');
+    return rawContent;
   } catch (error) {
     logger.error('命理大师 Agent 追问失败:', error);
     return '抱歉，AI 服务暂时出错，请稍后重试。';

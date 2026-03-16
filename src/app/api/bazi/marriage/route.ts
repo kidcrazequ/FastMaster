@@ -12,7 +12,11 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { calculatePersonBazi, formatSiZhu } from '@/lib/bazi/calculator';
 import { analyzeMarriage } from '@/lib/bazi/marriage';
-import { generateMarriageAnalysis } from '@/lib/ai/agent';
+import { generateMarriageAnalysis, reviewAndPolish } from '@/lib/ai/agent';
+import { logger } from '@/lib/ai/agent-logger';
+
+/** AI 分析涉及两次串行调用（Agent 分析 + 润色），需要足够的超时时间 */
+export const maxDuration = 120;
 
 /** 个人信息 Schema */
 const personRequestSchema = z.object({
@@ -130,7 +134,7 @@ export async function POST(request: NextRequest) {
     const aiAnalysis = await generateMarriageAnalysis(analysisResult);
     analysisResult.aiAnalysis = aiAnalysis;
 
-    // 保存分析记录
+    // 保存原始分析结果并立即返回
     const analysis = await prisma.marriageAnalysis.create({
       data: {
         userId: session.user.id,
@@ -147,7 +151,25 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`合婚分析完成，ID: ${analysis.id}，总分: ${analysisResult.overallScore}`);
+    logger.info(`合婚分析完成，ID: ${analysis.id}，总分: ${analysisResult.overallScore}，先返回结果`);
+
+    // 后台异步润色，不阻塞响应
+    if (process.env.SKIP_REVIEW !== 'true') {
+      reviewAndPolish(aiAnalysis, '合婚')
+        .then(async (polished) => {
+          analysisResult.aiAnalysis = polished;
+          await prisma.marriageAnalysis.update({
+            where: { id: analysis.id },
+            data: {
+              result: JSON.stringify(analysisResult),
+            },
+          });
+          logger.info(`合婚分析 ${analysis.id} 后台润色完成，已更新数据库`);
+        })
+        .catch((err) => {
+          logger.warn(`合婚分析 ${analysis.id} 后台润色失败:`, err);
+        });
+    }
 
     return NextResponse.json({
       success: true,

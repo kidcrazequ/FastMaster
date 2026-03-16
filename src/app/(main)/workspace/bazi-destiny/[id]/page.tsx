@@ -154,20 +154,19 @@ export default function DestinyResultPage() {
     }
   };
 
-  /** 预处理 Markdown 内容，修复一些格式问题 */
+  /** 预处理 Markdown 内容，修复格式问题并过滤 emoji */
   const preprocessMarkdown = (content: string): string => {
     if (!content) return '';
     
-    // 修复 **"..."** 格式问题：将中文引号内的加粗改为引号外加粗
-    // 例如: **"文字"** -> **"文字"**（确保 ** 和引号之间没有空格）
     let processed = content;
+
+    // 过滤 emoji 图标，保持纯文字古典风格
+    processed = processed.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '');
     
-    // 处理 ** 和中文标点之间的空格问题
+    // 修复 ** 和中文标点之间的空格问题
     processed = processed.replace(/\*\*\s*([""「」『』【】])/g, '**$1');
     processed = processed.replace(/([""「」『』【】])\s*\*\*/g, '$1**');
     
-    // 如果 ** 和中文之间有问题，尝试另一种修复方式
-    // 将 **"..."** 转换为 "**...**"
     processed = processed.replace(/\*\*[""]([^""]+)[""]\*\*/g, '"**$1**"');
     processed = processed.replace(/\*\*「([^」]+)」\*\*/g, '「**$1**」');
     
@@ -326,35 +325,18 @@ export default function DestinyResultPage() {
                 </div>
               </div>
 
-              <div className="prose prose-lg max-w-none 
+              <div className="prose prose-base max-w-none
                     prose-headings:text-[#8B0000] prose-headings:font-bold prose-headings:font-serif prose-headings:tracking-wider
-                    prose-h1:text-4xl prose-h1:text-center prose-h1:border-b-4 prose-h1:border-double prose-h1:border-[#8B0000] prose-h1:pb-6 prose-h1:mb-16
-                    prose-h2:text-3xl prose-h2:border-l-[16px] prose-h2:border-[#8B0000] prose-h2:pl-8 prose-h2:mt-24 prose-h2:mb-12 prose-h2:bg-[#8B0000]/10 prose-h2:py-6 prose-h2:tracking-[0.2em] prose-h2:shadow-sm
-                    prose-h3:text-2xl prose-h3:mt-14 prose-h3:mb-8 prose-h3:text-[#3E2723] prose-h3:font-black prose-h3:border-b-2 prose-h3:border-[#D7CCC8] prose-h3:pb-3
-                    prose-p:text-[#3E2723] prose-p:leading-loose prose-p:mb-14 prose-p:text-xl prose-p:font-medium
-                    prose-strong:text-[#8B0000] prose-strong:font-black prose-strong:text-2xl
-                    prose-li:text-[#3E2723] prose-li:text-xl prose-li:mb-8 prose-li:font-medium
-                    prose-hr:border-[#D7CCC8] prose-hr:my-24">
+                    prose-h1:text-2xl prose-h1:text-center prose-h1:border-b-2 prose-h1:border-double prose-h1:border-[#8B0000] prose-h1:pb-4 prose-h1:mb-8
+                    prose-h2:text-xl prose-h2:border-l-4 prose-h2:border-[#8B0000] prose-h2:pl-4 prose-h2:mt-10 prose-h2:mb-4 prose-h2:bg-[#8B0000]/5 prose-h2:py-2
+                    prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3 prose-h3:text-[#3E2723] prose-h3:font-bold prose-h3:border-b prose-h3:border-[#D7CCC8] prose-h3:pb-2
+                    prose-p:text-[#3E2723] prose-p:leading-relaxed prose-p:mb-4 prose-p:text-base
+                    prose-strong:text-[#8B0000] prose-strong:font-bold
+                    prose-li:text-[#3E2723] prose-li:text-base prose-li:mb-1
+                    prose-hr:border-[#D7CCC8] prose-hr:my-8
+                    prose-table:text-sm prose-th:bg-[#F5F2E9] prose-th:text-[#3E2723]">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {preprocessMarkdown(analysis.result.aiAnalysis
-                    .split('\n')
-                    .map(line => {
-                      const cleanLine = line.trim().replace(/^#+\s*/, '');
-                      // 1. 识别并转换一级标题
-                      if (cleanLine.endsWith('分析报告') || cleanLine.endsWith('姻缘笺')) return `# ${cleanLine}`;
-                      
-                      // 2. 识别大项标题（支持特定关键词或序号开头）
-                      const isMainTitle = /^(姻缘概述|八字解读|桃花运势|理想对象|婚姻建议|流年参考|命理总评|建议指导)/.test(cleanLine) || 
-                                        /^[一二三四五六七八九十\d]+[.、]/.test(cleanLine);
-                      if (isMainTitle) return `## ${cleanLine}`;
-                      
-                      // 3. 识别小项标题
-                      if (/^\(\d+\)/.test(cleanLine) || /^第[一二三四五六七八九十\d]+步/.test(cleanLine)) return `### ${cleanLine}`;
-                      
-                      return cleanLine;
-                    })
-                    .join('\n\n')
-                  )}
+                  {preprocessMarkdown(analysis.result.aiAnalysis)}
                 </ReactMarkdown>
               </div>
 
@@ -384,14 +366,14 @@ export default function DestinyResultPage() {
             </div>
 
             <Card className="rounded-none border border-[#D7CCC8] bg-[#FDFBF7] shadow-lg overflow-hidden flex flex-col h-[600px]">
-              <ScrollArea className="flex-1 p-6 bg-[#F5F2E9]/30">
+              <div className="flex-1 overflow-y-auto p-6 bg-[#F5F2E9]/30">
                 <div className="space-y-8">
                   {conversations.map((conv, index) => (
                     <div
                       key={index}
                       className={`flex gap-4 ${conv.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                     >
-                      <div className={`w-10 h-10 flex items-center justify-center text-white font-bold text-sm shadow-md
+                      <div className={`w-10 h-10 flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-md
                         ${conv.role === 'user' ? 'bg-[#3E2723] rounded-sm' : 'bg-[#8B0000] rounded-sm'}`}>
                         {conv.role === 'user' ? '访' : '师'}
                       </div>
@@ -426,7 +408,7 @@ export default function DestinyResultPage() {
                   )}
                   <div ref={chatEndRef} />
                 </div>
-              </ScrollArea>
+              </div>
 
               <div className="p-6 bg-white border-t border-[#D7CCC8]">
                 <div className="flex gap-3">

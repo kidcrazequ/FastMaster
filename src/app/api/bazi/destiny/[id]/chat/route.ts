@@ -12,6 +12,9 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { askDestinyFollowUp } from '@/lib/ai/agent';
 
+/** 追问涉及 Agent 分析 + 润色两次 AI 调用 */
+export const maxDuration = 120;
+
 /** 请求验证 Schema */
 const chatRequestSchema = z.object({
   question: z.string().min(1, '请输入问题'),

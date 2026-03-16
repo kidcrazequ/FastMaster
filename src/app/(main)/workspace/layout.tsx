@@ -17,9 +17,12 @@ export default function WorkspaceLayout({
     <div className="flex h-[calc(100vh-64px)]">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="lg:hidden flex items-center gap-2 p-4 border-b">
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b-2 border-[#D7CCC8]/50 bg-[#FDFBF7] font-serif">
           <MobileSidebar />
-          <span className="font-semibold">工作台</span>
+          <div className="w-8 h-8 bg-[#8B0000] flex items-center justify-center text-white text-sm font-bold rounded-sm border border-[#FFD700]/30 shadow-sm">
+            命
+          </div>
+          <span className="font-bold text-[#3E2723] tracking-widest">命理工作台</span>
         </div>
         <div className="flex-1 overflow-auto">{children}</div>
       </div>

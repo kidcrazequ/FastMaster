@@ -11,7 +11,11 @@ import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { calculatePersonBazi, formatSiZhu } from '@/lib/bazi/calculator';
-import { generateDestinyAnalysis, type DestinyAnalysisData } from '@/lib/ai/agent';
+import { generateDestinyAnalysis, reviewAndPolish, type DestinyAnalysisData } from '@/lib/ai/agent';
+import { logger } from '@/lib/ai/agent-logger';
+
+/** AI 分析涉及两次串行调用（Agent 分析 + 润色），需要足够的超时时间 */
+export const maxDuration = 120;
 
 /** 请求验证 Schema */
 const destinyRequestSchema = z.object({
@@ -103,7 +107,7 @@ export async function POST(request: NextRequest) {
     // 生成 AI 分析报告
     const aiAnalysis = await generateDestinyAnalysis(analysisData);
 
-    // 保存分析记录
+    // 保存原始分析结果并立即返回
     const analysis = await prisma.destinyAnalysis.create({
       data: {
         userId: session.user.id,
@@ -118,7 +122,27 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`姻缘分析完成，ID: ${analysis.id}`);
+    logger.info(`姻缘分析完成，ID: ${analysis.id}，先返回结果`);
+
+    // 后台异步润色，不阻塞响应
+    if (process.env.SKIP_REVIEW !== 'true') {
+      reviewAndPolish(aiAnalysis, '姻缘')
+        .then(async (polished) => {
+          await prisma.destinyAnalysis.update({
+            where: { id: analysis.id },
+            data: {
+              result: JSON.stringify({
+                ...analysisData,
+                aiAnalysis: polished,
+              }),
+            },
+          });
+          logger.info(`姻缘分析 ${analysis.id} 后台润色完成，已更新数据库`);
+        })
+        .catch((err) => {
+          logger.warn(`姻缘分析 ${analysis.id} 后台润色失败:`, err);
+        });
+    }
 
     return NextResponse.json({
       success: true,

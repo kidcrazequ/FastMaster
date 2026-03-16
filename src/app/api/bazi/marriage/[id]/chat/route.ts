@@ -12,6 +12,9 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { askFollowUp } from '@/lib/ai/agent';
 
+/** 追问涉及 Agent 分析 + 润色两次 AI 调用 */
+export const maxDuration = 120;
+
 /** 请求验证 Schema */
 const chatRequestSchema = z.object({
   message: z.string().min(1, '请输入问题'),
@@ -92,8 +95,14 @@ export async function POST(
 
     console.log(`用户追问: ${message}`);
 
-    // 调用 AI 生成回复
-    const analysisContext = analysis.result as string || '';
+    // 提取 AI 分析报告作为上下文（而非整个 result JSON）
+    let analysisContext = '';
+    try {
+      const parsed = analysis.result ? JSON.parse(analysis.result as string) : null;
+      analysisContext = parsed?.aiAnalysis || '';
+    } catch {
+      analysisContext = (analysis.result as string) || '';
+    }
     const aiResponse = await askFollowUp(analysisContext, message, history);
 
     // 保存 AI 回复
