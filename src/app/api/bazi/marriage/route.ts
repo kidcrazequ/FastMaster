@@ -12,7 +12,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { calculatePersonBazi, formatSiZhu } from '@/lib/bazi/calculator';
 import { analyzeMarriage } from '@/lib/bazi/marriage';
-import { generateMarriageAnalysis } from '@/lib/ai/deepseek';
+import { generateMarriageAnalysis } from '@/lib/ai/agent';
 
 /** 个人信息 Schema */
 const personRequestSchema = z.object({

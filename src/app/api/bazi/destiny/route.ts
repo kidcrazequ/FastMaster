@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { calculatePersonBazi, formatSiZhu } from '@/lib/bazi/calculator';
-import { generateDestinyAnalysis, type DestinyAnalysisData } from '@/lib/ai/deepseek';
+import { generateDestinyAnalysis, type DestinyAnalysisData } from '@/lib/ai/agent';
 
 /** 请求验证 Schema */
 const destinyRequestSchema = z.object({

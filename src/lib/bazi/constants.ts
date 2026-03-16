@@ -142,3 +142,30 @@ export const SHI_CHEN_RANGE: Record<DiZhi, string> = {
   '戌': '19:00-21:00',
   '亥': '21:00-23:00',
 };
+
+/** 地支三合局 */
+export const DI_ZHI_SAN_HE: [DiZhi, DiZhi, DiZhi, WuXing][] = [
+  ['申', '子', '辰', '水'],  // 申子辰合水局
+  ['亥', '卯', '未', '木'],  // 亥卯未合木局
+  ['寅', '午', '戌', '火'],  // 寅午戌合火局
+  ['巳', '酉', '丑', '金'],  // 巳酉丑合金局
+];
+
+/** 地支三会局 */
+export const DI_ZHI_SAN_HUI: [DiZhi, DiZhi, DiZhi, WuXing][] = [
+  ['亥', '子', '丑', '水'],  // 亥子丑会水局（北方水）
+  ['寅', '卯', '辰', '木'],  // 寅卯辰会木局（东方木）
+  ['巳', '午', '未', '火'],  // 巳午未会火局（南方火）
+  ['申', '酉', '戌', '金'],  // 申酉戌会金局（西方金）
+];
+
+/** 地支相刑 */
+export const DI_ZHI_XING: { type: string; members: DiZhi[] }[] = [
+  { type: '无礼之刑', members: ['子', '卯'] },
+  { type: '无恩之刑', members: ['寅', '巳', '申'] },
+  { type: '恃势之刑', members: ['丑', '未', '戌'] },
+  { type: '自刑', members: ['辰'] },
+  { type: '自刑', members: ['午'] },
+  { type: '自刑', members: ['酉'] },
+  { type: '自刑', members: ['亥'] },
+];

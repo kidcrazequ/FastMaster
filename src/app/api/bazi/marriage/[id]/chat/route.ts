@@ -10,7 +10,7 @@ import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { askFollowUp } from '@/lib/ai/deepseek';
+import { askFollowUp } from '@/lib/ai/agent';
 
 /** 请求验证 Schema */
 const chatRequestSchema = z.object({

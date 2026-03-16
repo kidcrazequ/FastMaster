@@ -268,14 +268,14 @@ export interface DestinyAnalysisData {
   name: string;
   gender: string;
   siZhu: {
-    year: { gan: string; zhi: string };
-    month: { gan: string; zhi: string };
-    day: { gan: string; zhi: string };
-    hour?: { gan: string; zhi: string };
+    year: { tianGan: string; diZhi: string };
+    month: { tianGan: string; diZhi: string };
+    day: { tianGan: string; diZhi: string };
+    hour: { tianGan: string; diZhi: string };
   };
   riYuan: string;
   riYuanWuXing: string;
-  wuXingCount: Record<string, number>;
+  wuXingCount: { 金: number; 木: number; 水: number; 火: number; 土: number };
   knowBirthTime: boolean;
 }
 
@@ -366,9 +366,9 @@ ${analysisContext}
  * @returns 提示词
  */
 function buildDestinyPrompt(data: DestinyAnalysisData): string {
-  const siZhuStr = data.siZhu.hour
-    ? `${data.siZhu.year.gan}${data.siZhu.year.zhi} ${data.siZhu.month.gan}${data.siZhu.month.zhi} ${data.siZhu.day.gan}${data.siZhu.day.zhi} ${data.siZhu.hour.gan}${data.siZhu.hour.zhi}`
-    : `${data.siZhu.year.gan}${data.siZhu.year.zhi} ${data.siZhu.month.gan}${data.siZhu.month.zhi} ${data.siZhu.day.gan}${data.siZhu.day.zhi} (时柱未知)`;
+  const siZhuStr = data.knowBirthTime
+    ? `${data.siZhu.year.tianGan}${data.siZhu.year.diZhi} ${data.siZhu.month.tianGan}${data.siZhu.month.diZhi} ${data.siZhu.day.tianGan}${data.siZhu.day.diZhi} ${data.siZhu.hour.tianGan}${data.siZhu.hour.diZhi}`
+    : `${data.siZhu.year.tianGan}${data.siZhu.year.diZhi} ${data.siZhu.month.tianGan}${data.siZhu.month.diZhi} ${data.siZhu.day.tianGan}${data.siZhu.day.diZhi} (时柱未知)`;
 
   return `请分析以下个人的婚姻姻缘运势：
 
@@ -395,9 +395,9 @@ ${!data.knowBirthTime ? '- 注意：时柱未知，分析基于年月日三柱' 
  * @returns 模拟分析报告
  */
 function generateMockDestinyAnalysis(data: DestinyAnalysisData): string {
-  const siZhuStr = data.siZhu.hour
-    ? `${data.siZhu.year.gan}${data.siZhu.year.zhi} ${data.siZhu.month.gan}${data.siZhu.month.zhi} ${data.siZhu.day.gan}${data.siZhu.day.zhi} ${data.siZhu.hour.gan}${data.siZhu.hour.zhi}`
-    : `${data.siZhu.year.gan}${data.siZhu.year.zhi} ${data.siZhu.month.gan}${data.siZhu.month.zhi} ${data.siZhu.day.gan}${data.siZhu.day.zhi}`;
+  const siZhuStr = data.knowBirthTime
+    ? `${data.siZhu.year.tianGan}${data.siZhu.year.diZhi} ${data.siZhu.month.tianGan}${data.siZhu.month.diZhi} ${data.siZhu.day.tianGan}${data.siZhu.day.diZhi} ${data.siZhu.hour.tianGan}${data.siZhu.hour.diZhi}`
+    : `${data.siZhu.year.tianGan}${data.siZhu.year.diZhi} ${data.siZhu.month.tianGan}${data.siZhu.month.diZhi} ${data.siZhu.day.tianGan}${data.siZhu.day.diZhi}`;
 
   return `## 姻缘分析报告
 
